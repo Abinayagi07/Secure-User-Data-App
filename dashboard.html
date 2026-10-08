@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard | Secure User Data App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <h1>My Dashboard</h1>
+    <p class="center">Welcome, <strong id="userName">User</strong></p>
+
+    <h2>Your Data</h2>
+    <input id="dataInput" type="text" maxlength="500" placeholder="Enter your data">
+    <button id="saveButton">Save Data</button>
+
+    <p id="message" class="message"></p>
+    <section id="dataList"></section>
+
+    <button id="logoutButton" class="secondary">Logout</button>
+  </main>
+
+  <script>
+    const input = document.getElementById("dataInput");
+    const list = document.getElementById("dataList");
+    const message = document.getElementById("message");
+
+    async function loadUser() {
+      const response = await fetch("/api/me");
+      if (!response.ok) {
+        location.href = "/login.html";
+        return;
+      }
+      const user = await response.json();
+      document.getElementById("userName").textContent = user.name;
+    }
+
+    async function loadData() {
+      const response = await fetch("/api/my-data");
+      if (response.status === 401) {
+        location.href = "/login.html";
+        return;
+      }
+      const data = await response.json();
+      list.innerHTML = "";
+
+      if (data.length === 0) {
+        list.innerHTML = '<p class="small">No data saved yet.</p>';
+        return;
+      }
+
+      data.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "item";
+
+        const text = document.createElement("span");
+        text.textContent = item.data;
+
+        const del = document.createElement("button");
+        del.className = "delete";
+        del.textContent = "Delete";
+        del.onclick = () => deleteData(item.id);
+
+        row.appendChild(text);
+        row.appendChild(del);
+        list.appendChild(row);
+      });
+    }
+
+    async function saveData() {
+      const data = input.value.trim();
+      if (!data) {
+        message.textContent = "Please enter some data.";
+        return;
+      }
+
+      const response = await fetch("/api/my-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data })
+      });
+
+      const result = await response.json();
+      message.textContent = result.message;
+
+      if (response.ok) {
+        input.value = "";
+        loadData();
+      }
+    }
+
+    async function deleteData(id) {
+      const response = await fetch("/api/my-data/" + id, { method: "DELETE" });
+      const result = await response.json();
+      message.textContent = result.message;
+      loadData();
+    }
+
+    document.getElementById("saveButton").onclick = saveData;
+    document.getElementById("logoutButton").onclick = async () => {
+      await fetch("/logout", { method: "POST" });
+      location.href = "/login.html";
+    };
+
+    loadUser();
+    loadData();
+  </script>
+</body>
+</html>
